@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 
 from mmengine.structures import InstanceData
-from torchvision.ops import nms  # 用 torchvision 的 nms，避免 mmcv.ops 编译问题
+from torchvision.ops import nms  
 
 from mmdet.registry import MODELS, TASK_UTILS
 from mmdet.models.dense_heads.base_dense_head import BaseDenseHead
@@ -33,7 +33,7 @@ class LightDecoder(BaseDenseHead):
     def __init__(self,
                  num_classes,
                  in_channels,
-                 reg_max=16,  # reg_max 是最大整数距离上界，bins = reg_max + 1
+                 reg_max=16,  
                  train_cfg=None,
                  test_cfg=None,
                  loss_cls=dict(
@@ -50,12 +50,12 @@ class LightDecoder(BaseDenseHead):
         self.in_channels = in_channels
 
         self.reg_max = int(reg_max)
-        self.reg_max_bins = self.reg_max + 1  # 关键：DFL bins
+        self.reg_max_bins = self.reg_max + 1  
 
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        # 3 层输出对应 strides
+       
         self.prior_generator = MlvlPointGenerator([8, 16, 32], offset=0.0)
 
         # losses
@@ -89,11 +89,11 @@ class LightDecoder(BaseDenseHead):
                     Conv(c, c, 3, g=max(1, c // 16))
                 )
             )
-            # 关键：输出通道必须是 4*(reg_max+1)
+           
             self.reg_convs.append(nn.Conv2d(c, 4 * self.reg_max_bins, 1))
             self.cls_convs.append(nn.Conv2d(c, self.num_classes, 1))
 
-        # 推理用（训练 DFL loss 不靠它）
+        
         self.dfl = DFL(self.reg_max_bins) if self.reg_max_bins > 1 else nn.Identity()
 
     def init_weights(self):
@@ -103,7 +103,6 @@ class LightDecoder(BaseDenseHead):
             cls_conv.bias.data[:self.num_classes] = math.log(5 / self.num_classes / (640 / stride_val) ** 2)
 
     def forward(self, feats):
-        # 注意：第二个输出 bbox_preds 这里仍返回 None（list[None]），但我们会重写 predict_by_feat 忽略它
         return multi_apply(self.forward_single, feats, self.stems, self.reg_convs, self.cls_convs)
 
     def forward_single(self, x, stem, reg_conv, cls_conv):
@@ -156,7 +155,7 @@ class LightDecoder(BaseDenseHead):
 
         proj = torch.arange(self.reg_max_bins, device=flatten_reg_dist_preds.device, dtype=torch.float32)
         dist = flatten_reg_dist_preds.reshape(num_imgs, -1, 4, self.reg_max_bins).softmax(dim=3).matmul(proj)  # (B,N,4)
-        dist = dist * strides.unsqueeze(0)  # 转像素
+        dist = dist * strides.unsqueeze(0)  
 
         flatten_bbox_preds = self.bbox_coder.decode(
             points.unsqueeze(0).expand(num_imgs, -1, 2).reshape(-1, 2),
@@ -220,7 +219,7 @@ class LightDecoder(BaseDenseHead):
                 weight=bbox_weights[pos_inds]
             )
 
-        # 3) DFL loss (target 必须是 1D: (Npos*4,))
+        # 3) DFL loss 
         if pos_inds.numel() == 0:
             loss_dfl = dist_logits_flat.sum() * 0.0
         else:
@@ -244,9 +243,6 @@ class LightDecoder(BaseDenseHead):
 
         return dict(loss_cls=loss_cls, loss_bbox=loss_bbox, loss_dfl=loss_dfl)
 
-    # ============================
-    # 关键：重写 predict_by_feat()
-    # ============================
     def predict_by_feat(self,
                         cls_scores,
                         bbox_preds,
@@ -255,11 +251,7 @@ class LightDecoder(BaseDenseHead):
                         cfg=None,
                         rescale=False,
                         **kwargs):
-        """
-        解决验证时报 'NoneType is not subscriptable'：
-        BaseDenseHead 默认会用 bbox_preds 做解码，但你 bbox_preds 是 None。
-        这里我们完全忽略 bbox_preds，用 reg_dist_preds 解码出 bbox，再 NMS。
-        """
+
         if cfg is None:
             cfg = self.test_cfg
 
@@ -299,7 +291,7 @@ class LightDecoder(BaseDenseHead):
                 dist = reg.softmax(dim=2).matmul(proj) * strides                                         # (n,4) pixels
                 bboxes = self.bbox_coder.decode(points, dist)                                             # (n,4)
 
-                # 单标签：取 max class
+        
                 scores, labels = cls.max(dim=1)  # (n,), (n,)
 
                 all_bboxes.append(bboxes)
@@ -310,7 +302,7 @@ class LightDecoder(BaseDenseHead):
             scores = torch.cat(all_scores, dim=0)
             labels = torch.cat(all_labels, dim=0)
 
-            # nms_pre：先按分数取 TopK
+            # nms_pre
             if nms_pre > 0 and scores.numel() > nms_pre:
                 topk_scores, topk_inds = scores.topk(nms_pre)
                 bboxes = bboxes[topk_inds]
@@ -331,7 +323,7 @@ class LightDecoder(BaseDenseHead):
                 results_list.append(results)
                 continue
 
-            # NMS（这里做 class-agnostic；你是 1 类完全够用）
+            # NMS
             keep_inds = nms(bboxes, scores, iou_thr)
             if keep_inds.numel() > max_per_img:
                 keep_inds = keep_inds[:max_per_img]
@@ -340,21 +332,18 @@ class LightDecoder(BaseDenseHead):
             scores = scores[keep_inds]
             labels = labels[keep_inds]
 
-            # rescale 回原图
+            # rescale 
             img_meta = batch_img_metas[img_id]
             if rescale and ('scale_factor' in img_meta) and (img_meta['scale_factor'] is not None):
                 sf = img_meta['scale_factor']
                 sf = bboxes.new_tensor(sf)
 
-                # 兼容不同格式
+               
                 if sf.numel() == 1:
-                    # 单个标量：扩展到 4
                     sf = sf.repeat(4)
                 elif sf.numel() == 2:
-                    # (w_scale, h_scale) -> (w_scale, h_scale, w_scale, h_scale)
                     sf = sf.repeat(2)
                 elif sf.numel() == 4:
-                    # 已经是 (w,h,w,h)
                     pass
                 else:
                     raise ValueError(f'Unexpected scale_factor shape: {sf.shape}, value: {img_meta["scale_factor"]}')
