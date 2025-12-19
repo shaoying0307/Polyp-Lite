@@ -33,9 +33,6 @@ class DWConv(Conv):
     def __init__(self, c1, c2, k=1, s=1, d=1, act=True):
         super().__init__(c1, c2, k, s, g=math.gcd(c1, c2), d=d, act=act)
 
-# ===================================================================
-# Kernel Warehouse Modules (DKConv / Warehouse_Manager)
-# ===================================================================
 
 @MODELS.register_module()
 class Warehouse_Manager(BaseModule):
@@ -63,9 +60,6 @@ class DKConv(BaseModule):
     def forward(self, x):
         return self.conv(x)
 
-# ===================================================================
-# FSSBlock & Dependencies
-# ===================================================================
 
 class Bottleneck_FSS(BaseModule):
     """Standard bottleneck with kernel_warehouse (DKConv)."""
@@ -99,9 +93,6 @@ class FSSBlock(BaseModule):
         y.extend(m(y[-1]) for m in self.m)
         return self.cv2(torch.cat(y, 1))
 
-# ===================================================================
-# LGFM
-# ===================================================================
 
 @MODELS.register_module()
 class LGFM(BaseModule):
@@ -122,9 +113,6 @@ class LGFM(BaseModule):
             x = torch.cat(x, dim=1)
         return self.conv(x)
 
-# ===================================================================
-# MFFM
-# ===================================================================
 
 @MODELS.register_module()
 class MFFM(BaseModule):
@@ -139,10 +127,6 @@ class MFFM(BaseModule):
         if isinstance(x, list):
             x = torch.cat(x, 1)
         return self.act(self.bn(self.conv(x)))
-
-# ===================================================================
-# DySample
-# ===================================================================
 
 def normal_init(module, mean=0, std=1, bias=0):
     if hasattr(module, 'weight') and module.weight is not None:
@@ -181,15 +165,12 @@ class DySample(BaseModule):
         # Here we provide a functional placeholder that upsamples.
         return F.interpolate(x, scale_factor=self.scale, mode='bilinear', align_corners=False)
 
-# ===================================================================
-# Standard Blocks
-# ===================================================================
 
 @MODELS.register_module()
 class HGBlock(BaseModule):
     def __init__(self, c1, cm, c2, k=3, n=6, lightconv=False, shortcut=False, act=nn.ReLU(), light=None):
         super().__init__()
-        if light is not None:  # 兼容旧参数名
+        if light is not None:  
             lightconv = light
         self.m = nn.ModuleList(Conv(c1 if i == 0 else cm, cm, k=k, act=act) for i in range(n))
         self.sc = Conv(c1 + n * cm, c2 // 2, 1, 1, act=act)
@@ -225,7 +206,7 @@ class HGStem(BaseModule):
         return self.stem4(x)
 
 @MODELS.register_module()
-class SPPF(BaseModule):
+class SPP(BaseModule):
     def __init__(self, c1, c2, k=5):
         super().__init__()
         c_ = c1 // 2
@@ -240,7 +221,7 @@ class SPPF(BaseModule):
         return self.cv2(torch.cat((x, y1, y2, self.m(y2)), 1))
 
 @MODELS.register_module()
-class C2PSA(BaseModule):
+class PSA(BaseModule):
     def __init__(self, c1, c2, n=1, e=0.5):
         super().__init__()
         c_ = int(c1 * e)
