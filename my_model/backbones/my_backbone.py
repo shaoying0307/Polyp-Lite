@@ -48,8 +48,8 @@ class DualFusionNet(BaseModule):
         
         # SPP & PSA
         from ..layers.custom_modules import SPP, PSA 
-        self.layer20 = SPPF(256, 256, k=5)
-        self.layer21 = C2PSA(256, 256) 
+        self.layer20 = SPP(256, 256, k=5)
+        self.layer21 = PSA(256, 256) 
 
     def forward(self, x):
     
