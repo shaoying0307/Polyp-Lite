@@ -8,11 +8,7 @@ from ..layers.custom_modules import HGStem, HGBlock, FSSBlock, DKConv, LGFM, Con
 class DualFusionNet(BaseModule):
     def __init__(self, init_cfg=None):
         super().__init__(init_cfg=init_cfg)
-        
-        # 定义通道数 (根据 YAML 计算)
-        # P2/4: 32, P3/8: 64, P4/16: 128, P5/32: 256 (假设各层通道数)
-        
-        # 0. Stem
+
         self.layer0 = HGStem(3, 16, 32) # [-1, 1, HGStem, [16, 32]]
         
         # Branch 1 (Upper Path in YAML)
@@ -22,11 +18,11 @@ class DualFusionNet(BaseModule):
         
         # Branch 2 (HGBlock Path)
         self.layer4 = HGBlock(32, 16, 32, k=3)    # c1=32, cm=16, c2=32
-        self.layer5 = Conv(32, 64, k=3, s=2, g=1, act=False) # [-1, 1, DWConv...] 注意这里用 Conv 模拟 DWConv 如果参数一致
+        self.layer5 = Conv(32, 64, k=3, s=2, g=1, act=False) # [-1, 1, DWConv...] 
         self.layer6 = HGBlock(64, 32, 64, k=3)    # c1=64, cm=32, c2=64
         
         # Merge P3
-        self.layer7 = LGFM(64, 64) # [[3, 6], 1, HAFB, [64, True]] (假设输出64)
+        self.layer7 = LGFM(64, 64) # [[3, 6], 1, HAFB, [64, True]] 
         
         # P4 Part
         self.layer8 = DKConv(64, 128, k=3, s=2)
@@ -51,12 +47,12 @@ class DualFusionNet(BaseModule):
         self.layer19 = LGFM(256, 256) # [[16, 18], 1, HAFB]
         
         # SPP & PSA
-        from ..layers.custom_modules import SPPF, C2PSA # 假设你有 C2PSA
+        from ..layers.custom_modules import SPP, PSA 
         self.layer20 = SPPF(256, 256, k=5)
-        self.layer21 = C2PSA(256, 256) # 需要实现 C2PSA
+        self.layer21 = C2PSA(256, 256) 
 
     def forward(self, x):
-        # 模拟 YAML 的执行流
+    
         x0 = self.layer0(x) # P2
         
         # P3 Branching
@@ -92,5 +88,4 @@ class DualFusionNet(BaseModule):
         x20 = self.layer20(x19)
         x21 = self.layer21(x20) # P5 Output
         
-        # 返回 MFFM Encoder 需要的特征层: P3, P4, P5
         return (x7, x14, x21)
