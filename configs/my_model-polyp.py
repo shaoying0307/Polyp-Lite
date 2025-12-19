@@ -1,18 +1,18 @@
 # configs/my_model/my_model-polyp.py
 
-# 基础配置
+
 _base_ = [
     '../_base_/schedules/schedule_1x.py',
     '../_base_/default_runtime.py'
 ]
 
-# 1. 定义数据集信息
+
 data_root = '/root/workspace/Hybrid-Polyp_dataset/'
 class_names = ('polyp', )
 num_classes = 1
 metainfo = dict(classes=class_names)
 
-# 2. 定义模型
+
 model = dict(
     type='SingleStageDetector',
     data_preprocessor=dict(
@@ -37,7 +37,7 @@ model = dict(
         type='LightDecoder',
         num_classes=num_classes,
         in_channels=[256, 256, 256],
-        reg_max=16,  # 注意：实现里已统一为 R=reg_max+1
+        reg_max=16, 
         loss_cls=dict(
             type='QualityFocalLoss',
             use_sigmoid=True,
@@ -58,7 +58,7 @@ model = dict(
         pos_weight=-1,
         debug=False),
 
-    # 放宽 score_thr，避免早期“全低分”直接被截断；其他保持不变
+
     test_cfg=dict(
         nms_pre=2000,
         score_thr=1e-4,  # 原 0.05 -> 1e-4
@@ -72,7 +72,7 @@ optim_wrapper = dict(
     clip_grad=dict(max_norm=10.0, norm_type=2)
 )
 
-# 3. 定义数据处理流水线 (Pipelines)
+
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadAnnotations', with_bbox=True),
@@ -90,7 +90,7 @@ test_pipeline = [
     )
 ]
 
-# 4. 定义数据加载器 (Dataloaders)
+
 train_dataloader = dict(
     batch_size=16,
     num_workers=8,
@@ -129,7 +129,7 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-# 5. 定义评估器 (Evaluator)
+
 val_evaluator = dict(
     type='CocoMetric',
     ann_file=data_root + 'Hybrid-Polyp_val/val.json',
