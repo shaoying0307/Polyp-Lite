@@ -61,7 +61,7 @@ model = dict(
 
     test_cfg=dict(
         nms_pre=2000,
-        score_thr=1e-4,  # 原 0.05 -> 1e-4
+        score_thr=1e-4,  
         nms=dict(type='nms', iou_threshold=0.6),
         max_per_img=300,)
 )
